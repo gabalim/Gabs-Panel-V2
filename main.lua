@@ -36,6 +36,7 @@ screenGui.Parent = PlayerGui
 local StickyAim_Enabled = false
 local WallCheck_Enabled = false
 local IgnoreDead_Enabled = false
+local IgnoreShield_Enabled = false -- FIX: Set to FALSE by default on load
 local TeamCheck_Enabled = false
 local VisualESP_Enabled = false
 local BehindWarning_Enabled = false
@@ -622,9 +623,13 @@ local function isEntityAlive(modelOrPlayer)
 	if not modelOrPlayer then return false end
 	
 	local char = modelOrPlayer
+	local playerObj = nil
 	if modelOrPlayer:IsA("Player") then
+		playerObj = modelOrPlayer
 		if not modelOrPlayer.Character then return false end
 		char = modelOrPlayer.Character
+	else
+		playerObj = Players:GetPlayerFromCharacter(modelOrPlayer)
 	end
 	
 	if not char:IsDescendantOf(workspace) then return false end
@@ -637,8 +642,37 @@ local function isEntityAlive(modelOrPlayer)
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return false end
 
+	-- FIX: Check if limbs have broken apart / ragdolled
+	local head = char:FindFirstChild("Head")
+	if head and not head:IsDescendantOf(char) then return false end
+
 	if char:GetAttribute("IsDead") == true or char:GetAttribute("Dead") == true or char:GetAttribute("Downed") == true then
 		return false
+	end
+
+	-- ADVANCED SPAWN SHIELD / FORCEFIELD CHECK --
+	if IgnoreShield_Enabled then
+		if char:FindFirstChildOfClass("ForceField") or char:FindFirstChildWhichIsA("ForceField", true) then
+			return false
+		end
+
+		if char:GetAttribute("Shield") or char:GetAttribute("SpawnShield") or char:GetAttribute("Invulnerable") or char:GetAttribute("God") then
+			return false
+		end
+		if playerObj and (playerObj:GetAttribute("Shield") or playerObj:GetAttribute("SpawnShield") or playerObj:GetAttribute("Invulnerable")) then
+			return false
+		end
+
+		for _, child in ipairs(char:GetDescendants()) do
+			local nameLower = string.lower(child.Name)
+			if nameLower:find("forcefield") or nameLower:find("spawnshield") or nameLower:find("spawn_shield") or nameLower:find("invincible") or nameLower:find("godmode") then
+				return false
+			end
+		end
+
+		if head and head:IsA("BasePart") and head.Transparency >= 0.5 then
+			return false
+		end
 	end
 
 	return true
@@ -685,9 +719,11 @@ local function getAllTargetCharacters()
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			if IgnoreDead_Enabled and not isEntityAlive(player) then continue end
-			if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then continue end
-			table.insert(targets, player.Character)
+			-- Exclude dead or scattered player bodies
+			if isEntityAlive(player) then
+				if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then continue end
+				table.insert(targets, player.Character)
+			end
 		end
 	end
 
@@ -705,11 +741,8 @@ local function getAllTargetCharacters()
 						local nameLower = string.lower(descendant.Name)
 						if not (nameLower:find("viewmodel") or nameLower:find("camera") or nameLower:find("effect") or nameLower:find("weapon") or nameLower:find("gun") or nameLower:find("item") or nameLower:find("drop")) then
 							if descendant:FindFirstChild("Head") or descendant:FindFirstChild("UpperTorso") or descendant:FindFirstChild("Torso") then
-								local hum = descendant:FindFirstChildOfClass("Humanoid")
-								if hum and hum.Health > 0 then
-									if not (IgnoreDead_Enabled and not isEntityAlive(descendant)) then
-										table.insert(targets, descendant)
-									end
+								if isEntityAlive(descendant) then
+									table.insert(targets, descendant)
 								end
 							end
 						end
@@ -822,6 +855,11 @@ createToggle("Wall Check", "Only aim at visible players/bots", false, function(s
 	end
 end)
 
+-- FIX: Ignore Spawn Shield set to false by default on load
+createToggle("Ignore Spawn Shield", "Ignore players with ForceFields", false, function(state)
+	IgnoreShield_Enabled = state
+end)
+
 createToggle("Behind Warning", "Alerts when enemies are behind you", false, function(state)
 	BehindWarning_Enabled = state
 	if not state then warningFrame.Visible = false end
@@ -842,6 +880,38 @@ end)
 createToggle("Visual ESP", "Highlights all enemies and bots", false, function(state)
 	VisualESP_Enabled = state
 end)
+
+--------------------------------------------------------------------------------
+-- ESP HELPER FUNCTION
+--------------------------------------------------------------------------------
+
+local function ApplyESP(character, isAlive)
+	if not character then return end
+
+	-- FIX: Instantly destroy ESP highlights on dead bodies or scattered limbs
+	if not isAlive then
+		local highlight = character:FindFirstChild("ESPHighlight")
+		if highlight then
+			highlight:Destroy()
+		end
+		return
+	end
+
+	local highlight = character:FindFirstChild("ESPHighlight")
+	if not highlight then
+		highlight = Instance.new("Highlight")
+		highlight.Name = "ESPHighlight"
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Parent = character
+	end
+
+	highlight.Adornee = character
+	highlight.Enabled = VisualESP_Enabled
+	highlight.FillTransparency = 0.5
+	highlight.OutlineTransparency = 0
+	highlight.FillColor = Color3.fromRGB(10, 132, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+end
 
 --------------------------------------------------------------------------------
 -- MAIN RENDER LOOP
@@ -865,7 +935,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 	end
 
 	if StickyAim_Enabled then
-		if LockTarget and IgnoreDead_Enabled and not isEntityAlive(LockTarget) then
+		if LockTarget and not isEntityAlive(LockTarget) then
 			LockTarget = nil
 		end
 
@@ -895,41 +965,47 @@ RunService.RenderStepped:Connect(function(deltaTime)
 				local smoothFactor = math.clamp(Aim_Smoothness * 35 * deltaTime, 0.01, 1)
 				Camera.CFrame = currentCFrame:Lerp(targetCFrame, smoothFactor)
 				
-				-- FOV circle turns Blue when target locked
 				FOVStroke.Color = Color3.fromRGB(10, 132, 255)
 			else
 				LockTarget = nil
-				-- FOV circle turns White when no target inside
 				FOVStroke.Color = UI_TextPrimary
 			end
 		else
-			-- FOV circle turns White when no target inside
 			FOVStroke.Color = UI_TextPrimary
 		end
 	end
 
-	for _, char in ipairs(getAllTargetCharacters()) do
-		if VisualESP_Enabled and char and char:FindFirstChild("HumanoidRootPart") then
-			local alive = isEntityAlive(char)
-			if IgnoreDead_Enabled and not alive then
-				local highlight = char:FindFirstChild("ESPHighlight")
-				if highlight then highlight.Enabled = false end
-			else
-				local highlight = char:FindFirstChild("ESPHighlight")
-				if not highlight then
-					highlight = Instance.new("Highlight")
-					highlight.Name = "ESPHighlight"
-					highlight.Adornee = char
-					highlight.Parent = char
-				end
-				highlight.Enabled = true
-				highlight.FillTransparency = 0.5
-				highlight.OutlineTransparency = 0
-				highlight.FillColor = alive and Color3.fromRGB(240, 242, 248) or Color3.fromRGB(100, 115, 130)
+	----------------------------------------------------------------------------
+	-- VISUAL ESP HIGHLIGHT RENDER
+	----------------------------------------------------------------------------
+	if VisualESP_Enabled then
+		-- Render highlights for alive target models
+		for _, char in ipairs(getAllTargetCharacters()) do
+			if char and char:FindFirstChild("HumanoidRootPart") then
+				local alive = isEntityAlive(char)
+				ApplyESP(char, alive)
 			end
-		else
-			if char and char:FindFirstChild("ESPHighlight") then
-				char.ESPHighlight.Enabled = false
+		end
+
+		-- Cleanup dead bodies / scattered limbs leftover in Workspace
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				if not isEntityAlive(player) then
+					local highlight = player.Character:FindFirstChild("ESPHighlight")
+					if highlight then
+						highlight:Destroy()
+					end
+				end
+			end
+		end
+	else
+		-- Destroy highlights across workspace when ESP is toggled off
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character then
+				local highlight = player.Character:FindFirstChild("ESPHighlight")
+				if highlight then
+					highlight:Destroy()
+				end
 			end
 		end
 	end
