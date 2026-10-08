@@ -9,7 +9,28 @@ local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --------------------------------------------------------------------------------
--- CONFIGURATION & STATE (ALL DEFAULT TO OFF)
+-- APPLE LIQUID GLASS PALETTE
+--------------------------------------------------------------------------------
+
+local UI_BgColor = Color3.fromRGB(20, 22, 28)        -- Deep frosted dark
+local UI_CardColor = Color3.fromRGB(30, 34, 45)      -- Translucent card tone
+local UI_CardBorder = Color3.fromRGB(255, 255, 255)  -- Glass edge highlight
+local UI_TextPrimary = Color3.fromRGB(245, 247, 250)
+local UI_TextSecondary = Color3.fromRGB(150, 160, 175)
+local UI_ToggleOn = Color3.fromRGB(10, 132, 255)     -- iOS Blue
+local UI_ToggleOff = Color3.fromRGB(45, 50, 65)
+local UI_WarningRed = Color3.fromRGB(255, 69, 58)    -- iOS Red
+
+local UI_Font = Enum.Font.GothamBold
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "GabsPanel_LiquidGlass"
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999
+screenGui.Parent = PlayerGui
+
+--------------------------------------------------------------------------------
+-- CONFIGURATION & STATE
 --------------------------------------------------------------------------------
 
 local StickyAim_Enabled = false
@@ -18,38 +39,24 @@ local IgnoreDead_Enabled = false
 local TeamCheck_Enabled = false
 local VisualESP_Enabled = false
 local BehindWarning_Enabled = false
+local TargetBots_Enabled = false
 
 local FOV_Radius = 82
 local Aim_Smoothness = 0.25
-local Behind_Distance = 30
+local Behind_Distance = 100
 local LockTarget = nil
 
--- Theme Palette (Matches Image Aesthetic)
-local UI_BgColor = Color3.fromRGB(10, 12, 16)
-local UI_CardColor = Color3.fromRGB(16, 18, 24)
-local UI_CardBorder = Color3.fromRGB(35, 40, 50)
-local UI_TextPrimary = Color3.fromRGB(240, 242, 248)
-local UI_TextSecondary = Color3.fromRGB(130, 138, 155)
-local UI_ToggleOn = Color3.fromRGB(240, 242, 248)
-local UI_ToggleOff = Color3.fromRGB(25, 28, 36)
-local UI_WarningRed = Color3.fromRGB(255, 60, 80)
-
 --------------------------------------------------------------------------------
--- GUI SETUP
+-- GUI COMPONENTS & WINDOW SETUP
 --------------------------------------------------------------------------------
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GabsPanel_Sleek"
-screenGui.ResetOnSpawn = false
-screenGui.DisplayOrder = 999
-screenGui.Parent = PlayerGui
-
--- Redesigned Themed Warning Box (Matches GUI Card Aesthetic)
+-- Themed Warning Box (Glassmorphism)
 local warningFrame = Instance.new("Frame")
 warningFrame.Name = "WarningFrame"
 warningFrame.Size = UDim2.new(0, 210, 0, 38)
 warningFrame.Position = UDim2.new(0.5, -105, 0.1, 0)
 warningFrame.BackgroundColor3 = UI_CardColor
+warningFrame.BackgroundTransparency = 0.25
 warningFrame.BorderSizePixel = 0
 warningFrame.Active = true
 warningFrame.Draggable = true
@@ -57,15 +64,15 @@ warningFrame.Visible = false
 warningFrame.Parent = screenGui
 
 local warningCorner = Instance.new("UICorner")
-warningCorner.CornerRadius = UDim.new(0, 10)
+warningCorner.CornerRadius = UDim.new(0, 12)
 warningCorner.Parent = warningFrame
 
 local warningStroke = Instance.new("UIStroke")
 warningStroke.Color = UI_CardBorder
+warningStroke.Transparency = 0.7
 warningStroke.Thickness = 1
 warningStroke.Parent = warningFrame
 
--- Warning Red Accent Indicator Dot
 local warningDot = Instance.new("Frame")
 warningDot.Size = UDim2.new(0, 8, 0, 8)
 warningDot.Position = UDim2.new(0, 12, 0.5, -4)
@@ -82,8 +89,8 @@ warningText.Position = UDim2.new(0, 26, 0, 0)
 warningText.BackgroundTransparency = 1
 warningText.Text = "⚠️ ENEMY BEHIND!"
 warningText.TextColor3 = UI_TextPrimary
-warningText.Font = Enum.Font.GothamBold
-warningText.TextSize = 10
+warningText.Font = UI_Font
+warningText.TextSize = 11
 warningText.TextXAlignment = Enum.TextXAlignment.Left
 warningText.TextTruncate = Enum.TextTruncate.AtEnd
 warningText.Parent = warningFrame
@@ -94,53 +101,63 @@ toggleBtn.Name = "MobileToggleBtn"
 toggleBtn.Size = UDim2.new(0, 48, 0, 48)
 toggleBtn.Position = UDim2.new(0.02, 0, 0.2, 0)
 toggleBtn.BackgroundColor3 = UI_BgColor
+toggleBtn.BackgroundTransparency = 0.2
 toggleBtn.Text = "GAB"
 toggleBtn.TextColor3 = UI_TextPrimary
-toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Font = UI_Font
 toggleBtn.TextSize = 13
 toggleBtn.Active = true
 toggleBtn.Draggable = true
+toggleBtn.Visible = false 
 toggleBtn.Parent = screenGui
 
 local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 12)
+toggleCorner.CornerRadius = UDim.new(0, 14)
 toggleCorner.Parent = toggleBtn
 
 local toggleStroke = Instance.new("UIStroke")
 toggleStroke.Color = UI_CardBorder
-toggleStroke.Thickness = 1.5
+toggleStroke.Transparency = 0.6
+toggleStroke.Thickness = 1.2
 toggleStroke.Parent = toggleBtn
 
--- Main Frame
+-- Main Frame (Liquid Glass Look)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 520, 0, 360)
-mainFrame.Position = UDim2.new(0.5, -260, 0.5, -180)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 mainFrame.BackgroundColor3 = UI_BgColor
+mainFrame.BackgroundTransparency = 0.15
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
-mainFrame.Visible = true
+mainFrame.Visible = false
 mainFrame.Parent = screenGui
 
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 20)
+mainCorner.CornerRadius = UDim.new(0, 22)
 mainCorner.Parent = mainFrame
 
 local mainStroke = Instance.new("UIStroke")
 mainStroke.Color = UI_CardBorder
-mainStroke.Thickness = 1.5
+mainStroke.Transparency = 0.5
+mainStroke.Thickness = 1.2
 mainStroke.Parent = mainFrame
+
+local mainScale = Instance.new("UIScale")
+mainScale.Scale = 0.85
+mainScale.Parent = mainFrame
 
 -- Title Header
 local headerTitle = Instance.new("TextLabel")
 headerTitle.Size = UDim2.new(0, 250, 0, 40)
-headerTitle.Position = UDim2.new(0, 20, 0, 8)
+headerTitle.Position = UDim2.new(0, 20, 0, 12)
 headerTitle.BackgroundTransparency = 1
-headerTitle.Text = "GAB | PANEL"
+headerTitle.Text = "Gab's Panel"
 headerTitle.TextColor3 = UI_TextPrimary
-headerTitle.Font = Enum.Font.GothamBold
-headerTitle.TextSize = 16
+headerTitle.Font = UI_Font
+headerTitle.TextSize = 14
 headerTitle.TextXAlignment = Enum.TextXAlignment.Left
 headerTitle.Parent = mainFrame
 
@@ -149,9 +166,10 @@ local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 28, 0, 28)
 closeBtn.Position = UDim2.new(1, -38, 0, 12)
 closeBtn.BackgroundColor3 = UI_CardColor
+closeBtn.BackgroundTransparency = 0.3
 closeBtn.Text = "✕"
 closeBtn.TextColor3 = UI_TextSecondary
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Font = UI_Font
 closeBtn.TextSize = 12
 closeBtn.Parent = mainFrame
 
@@ -161,6 +179,7 @@ closeCorner.Parent = closeBtn
 
 local closeStroke = Instance.new("UIStroke")
 closeStroke.Color = UI_CardBorder
+closeStroke.Transparency = 0.7
 closeStroke.Thickness = 1
 closeStroke.Parent = closeBtn
 
@@ -168,9 +187,10 @@ local minBtn = Instance.new("TextButton")
 minBtn.Size = UDim2.new(0, 28, 0, 28)
 minBtn.Position = UDim2.new(1, -72, 0, 12)
 minBtn.BackgroundColor3 = UI_CardColor
+minBtn.BackgroundTransparency = 0.3
 minBtn.Text = "—"
 minBtn.TextColor3 = UI_TextSecondary
-minBtn.Font = Enum.Font.GothamBold
+minBtn.Font = UI_Font
 minBtn.TextSize = 12
 minBtn.Parent = mainFrame
 
@@ -180,25 +200,128 @@ minCorner.Parent = minBtn
 
 local minStroke = Instance.new("UIStroke")
 minStroke.Color = UI_CardBorder
+minStroke.Transparency = 0.7
 minStroke.Thickness = 1
 minStroke.Parent = minBtn
 
-closeBtn.MouseButton1Click:Connect(function()
-	mainFrame.Visible = false
+local panelOpen = false
+local function setPanelOpen(openState)
+	panelOpen = openState
+	if openState then
+		mainFrame.Visible = true
+		mainScale.Scale = 0.85
+		TweenService:Create(mainScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+	else
+		local tween = TweenService:Create(mainScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.85})
+		tween:Play()
+		tween.Completed:Connect(function()
+			if not panelOpen then mainFrame.Visible = false end
+		end)
+	end
+end
+
+closeBtn.MouseButton1Click:Connect(function() setPanelOpen(false) end)
+minBtn.MouseButton1Click:Connect(function() setPanelOpen(false) end)
+toggleBtn.MouseButton1Click:Connect(function() setPanelOpen(not panelOpen) end)
+
+--------------------------------------------------------------------------------
+-- LOADER NOTIFICATION
+--------------------------------------------------------------------------------
+
+local loaderFrame = Instance.new("Frame")
+loaderFrame.Size = UDim2.new(0, 220, 0, 50)
+loaderFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+loaderFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+loaderFrame.BackgroundColor3 = UI_CardColor
+loaderFrame.BackgroundTransparency = 0.2
+loaderFrame.BorderSizePixel = 0
+loaderFrame.ZIndex = 10
+loaderFrame.Parent = screenGui
+
+local loaderCorner = Instance.new("UICorner")
+loaderCorner.CornerRadius = UDim.new(0, 14)
+loaderCorner.Parent = loaderFrame
+
+local loaderStroke = Instance.new("UIStroke")
+loaderStroke.Color = UI_CardBorder
+loaderStroke.Transparency = 0.6
+loaderStroke.Thickness = 1.2
+loaderStroke.Parent = loaderFrame
+
+local loaderText = Instance.new("TextLabel")
+loaderText.Size = UDim2.new(1, 0, 1, 0)
+loaderText.BackgroundTransparency = 1
+loaderText.Text = "GAB'S PANEL | LOADING..."
+loaderText.TextColor3 = UI_TextPrimary
+loaderText.Font = UI_Font
+loaderText.TextSize = 11
+loaderText.ZIndex = 11
+loaderText.Parent = loaderFrame
+
+task.delay(2, function()
+	local tween = TweenService:Create(loaderFrame, TweenInfo.new(0.4), {BackgroundTransparency = 1})
+	local textTween = TweenService:Create(loaderText, TweenInfo.new(0.4), {TextTransparency = 1})
+	local strokeTween = TweenService:Create(loaderStroke, TweenInfo.new(0.4), {Transparency = 1})
+	
+	tween:Play()
+	textTween:Play()
+	strokeTween:Play()
+	
+	tween.Completed:Connect(function()
+		loaderFrame:Destroy()
+	end)
+	
+	toggleBtn.Visible = true
+	setPanelOpen(true)
 end)
 
-minBtn.MouseButton1Click:Connect(function()
-	mainFrame.Visible = false
-end)
+--------------------------------------------------------------------------------
+-- LEFT COLUMN: FEATURES LIST & SECTION HEADER
+--------------------------------------------------------------------------------
 
-toggleBtn.MouseButton1Click:Connect(function()
-	mainFrame.Visible = not mainFrame.Visible
-end)
+local sectionHeader = Instance.new("Frame")
+sectionHeader.Size = UDim2.new(0, 290, 0, 20)
+sectionHeader.Position = UDim2.new(0, 20, 0, 46)
+sectionHeader.BackgroundTransparency = 1
+sectionHeader.Parent = mainFrame
 
--- Layout Columns
+local sectionLine = Instance.new("Frame")
+sectionLine.Size = UDim2.new(1, 0, 0, 1)
+sectionLine.Position = UDim2.new(0, 0, 0, 0)
+sectionLine.BackgroundColor3 = UI_CardBorder
+sectionLine.BackgroundTransparency = 0.8
+sectionLine.BorderSizePixel = 0
+sectionLine.Parent = sectionHeader
+
+local sectionLabelContainer = Instance.new("Frame")
+sectionLabelContainer.Size = UDim2.new(0, 95, 0, 14)
+sectionLabelContainer.Position = UDim2.new(0, 0, 0, -7)
+sectionLabelContainer.BackgroundColor3 = UI_BgColor
+sectionLabelContainer.BackgroundTransparency = 1
+sectionLabelContainer.BorderSizePixel = 0
+sectionLabelContainer.Parent = sectionHeader
+
+local sectionDot = Instance.new("Frame")
+sectionDot.Size = UDim2.new(0, 3, 0, 10)
+sectionDot.Position = UDim2.new(0, 0, 0.5, -5)
+sectionDot.BackgroundColor3 = UI_TextPrimary
+sectionDot.BorderSizePixel = 0
+sectionDot.Parent = sectionLabelContainer
+
+local sectionText = Instance.new("TextLabel")
+sectionText.Size = UDim2.new(1, -8, 1, 0)
+sectionText.Position = UDim2.new(0, 8, 0, 0)
+sectionText.BackgroundTransparency = 1
+sectionText.Text = "FEATURES"
+sectionText.TextColor3 = UI_TextSecondary
+sectionText.Font = UI_Font
+sectionText.TextSize = 10
+sectionText.TextXAlignment = Enum.TextXAlignment.Left
+sectionText.Parent = sectionLabelContainer
+
 local featuresList = Instance.new("ScrollingFrame")
-featuresList.Size = UDim2.new(0, 290, 1, -60)
-featuresList.Position = UDim2.new(0, 20, 0, 48)
+featuresList.Size = UDim2.new(0, 290, 1, -78)
+featuresList.Position = UDim2.new(0, 20, 0, 72)
 featuresList.BackgroundTransparency = 1
 featuresList.BorderSizePixel = 0
 featuresList.ScrollBarThickness = 2
@@ -223,6 +346,7 @@ local profileCard = Instance.new("Frame")
 profileCard.Size = UDim2.new(0, 175, 1, -68)
 profileCard.Position = UDim2.new(1, -195, 0, 52)
 profileCard.BackgroundColor3 = UI_CardColor
+profileCard.BackgroundTransparency = 0.35
 profileCard.Parent = mainFrame
 
 local profileCorner = Instance.new("UICorner")
@@ -231,10 +355,10 @@ profileCorner.Parent = profileCard
 
 local profileStroke = Instance.new("UIStroke")
 profileStroke.Color = UI_CardBorder
+profileStroke.Transparency = 0.7
 profileStroke.Thickness = 1
 profileStroke.Parent = profileCard
 
--- Avatar Circle
 local avatarFrame = Instance.new("ImageLabel")
 avatarFrame.Size = UDim2.new(0, 80, 0, 80)
 avatarFrame.Position = UDim2.new(0.5, -40, 0, 20)
@@ -247,10 +371,10 @@ avatarCorner.Parent = avatarFrame
 
 local avatarStroke = Instance.new("UIStroke")
 avatarStroke.Color = UI_CardBorder
-avatarStroke.Thickness = 2
+avatarStroke.Transparency = 0.6
+avatarStroke.Thickness = 1.5
 avatarStroke.Parent = avatarFrame
 
--- Fetch Player Avatar
 task.spawn(function()
 	local content, isLoaded = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
 	if isLoaded then
@@ -258,7 +382,6 @@ task.spawn(function()
 	end
 end)
 
--- Profile Info Texts
 local function addProfileText(titleText, valText, yPos)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, -20, 0, 14)
@@ -266,7 +389,7 @@ local function addProfileText(titleText, valText, yPos)
 	label.BackgroundTransparency = 1
 	label.Text = titleText .. "   " .. valText
 	label.TextColor3 = UI_TextSecondary
-	label.Font = Enum.Font.GothamSemibold
+	label.Font = UI_Font
 	label.TextSize = 9
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -279,17 +402,17 @@ addProfileText("USER ID:", tostring(LocalPlayer.UserId), 145)
 local accountAgeDays = LocalPlayer.AccountAge
 local joinDate = os.date("*t", os.time() - (accountAgeDays * 86400))
 local formattedDate = string.format("%02d/%02d/%04d", joinDate.day, joinDate.month, joinDate.year)
-
 addProfileText("CREATED:", formattedDate, 170)
 
 --------------------------------------------------------------------------------
--- UI COMPONENTS (TOGGLES & SLIDERS)
+-- UI BUILDERS (TOGGLES & SLIDERS)
 --------------------------------------------------------------------------------
 
 local function createToggle(text, subtext, defaultState, callback)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, -8, 0, 38)
 	card.BackgroundColor3 = UI_CardColor
+	card.BackgroundTransparency = 0.35
 	card.Parent = featuresList
 
 	local cardCorner = Instance.new("UICorner")
@@ -298,6 +421,7 @@ local function createToggle(text, subtext, defaultState, callback)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = UI_CardBorder
+	cardStroke.Transparency = 0.75
 	cardStroke.Thickness = 1
 	cardStroke.Parent = card
 
@@ -307,7 +431,7 @@ local function createToggle(text, subtext, defaultState, callback)
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.TextColor3 = UI_TextPrimary
-	label.Font = Enum.Font.GothamBold
+	label.Font = UI_Font
 	label.TextSize = 11
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = card
@@ -316,9 +440,9 @@ local function createToggle(text, subtext, defaultState, callback)
 	desc.Size = UDim2.new(1, -70, 0, 12)
 	desc.Position = UDim2.new(0, 12, 0, 20)
 	desc.BackgroundTransparency = 1
-	desc.Text = subtext:upper()
+	desc.Text = subtext
 	desc.TextColor3 = UI_TextSecondary
-	desc.Font = Enum.Font.GothamSemibold
+	desc.Font = UI_Font
 	desc.TextSize = 8
 	desc.TextXAlignment = Enum.TextXAlignment.Left
 	desc.Parent = card
@@ -329,7 +453,7 @@ local function createToggle(text, subtext, defaultState, callback)
 	stateText.BackgroundTransparency = 1
 	stateText.Text = defaultState and "ON" or "OFF"
 	stateText.TextColor3 = UI_TextSecondary
-	stateText.Font = Enum.Font.GothamBold
+	stateText.Font = UI_Font
 	stateText.TextSize = 9
 	stateText.Parent = card
 
@@ -347,13 +471,14 @@ local function createToggle(text, subtext, defaultState, callback)
 
 	local switchStroke = Instance.new("UIStroke")
 	switchStroke.Color = UI_CardBorder
+	switchStroke.Transparency = 0.6
 	switchStroke.Thickness = 1
 	switchStroke.Parent = switchBg
 
 	local switchDot = Instance.new("Frame")
 	switchDot.Size = UDim2.new(0, 12, 0, 12)
 	switchDot.Position = defaultState and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
-	switchDot.BackgroundColor3 = defaultState and UI_BgColor or UI_TextSecondary
+	switchDot.BackgroundColor3 = UI_BgColor
 	switchDot.Parent = switchBg
 
 	local dotCorner = Instance.new("UICorner")
@@ -367,10 +492,9 @@ local function createToggle(text, subtext, defaultState, callback)
 		
 		local targetBg = state and UI_ToggleOn or UI_ToggleOff
 		local targetDotPos = state and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
-		local targetDotColor = state and UI_BgColor or UI_TextSecondary
 
 		TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
-		TweenService:Create(switchDot, TweenInfo.new(0.2), {Position = targetDotPos, BackgroundColor3 = targetDotColor}):Play()
+		TweenService:Create(switchDot, TweenInfo.new(0.2), {Position = targetDotPos}):Play()
 		callback(state)
 	end)
 end
@@ -379,6 +503,7 @@ local function createSlider(titleText, minVal, maxVal, defaultVal, callback)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, -8, 0, 44)
 	card.BackgroundColor3 = UI_CardColor
+	card.BackgroundTransparency = 0.35
 	card.Parent = featuresList
 
 	local cardCorner = Instance.new("UICorner")
@@ -387,6 +512,7 @@ local function createSlider(titleText, minVal, maxVal, defaultVal, callback)
 
 	local cardStroke = Instance.new("UIStroke")
 	cardStroke.Color = UI_CardBorder
+	cardStroke.Transparency = 0.75
 	cardStroke.Thickness = 1
 	cardStroke.Parent = card
 
@@ -396,7 +522,7 @@ local function createSlider(titleText, minVal, maxVal, defaultVal, callback)
 	sliderTitle.BackgroundTransparency = 1
 	sliderTitle.Text = titleText
 	sliderTitle.TextColor3 = UI_TextPrimary
-	sliderTitle.Font = Enum.Font.GothamBold
+	sliderTitle.Font = UI_Font
 	sliderTitle.TextSize = 11
 	sliderTitle.TextXAlignment = Enum.TextXAlignment.Left
 	sliderTitle.Parent = card
@@ -407,7 +533,7 @@ local function createSlider(titleText, minVal, maxVal, defaultVal, callback)
 	valLabel.BackgroundTransparency = 1
 	valLabel.Text = tostring(defaultVal)
 	valLabel.TextColor3 = UI_TextSecondary
-	valLabel.Font = Enum.Font.GothamBold
+	valLabel.Font = UI_Font
 	valLabel.TextSize = 10
 	valLabel.TextXAlignment = Enum.TextXAlignment.Right
 	valLabel.Parent = card
@@ -484,20 +610,24 @@ FOVCorner.Parent = FOVFrame
 
 local FOVStroke = Instance.new("UIStroke")
 FOVStroke.Color = UI_TextPrimary
+FOVStroke.Transparency = 0.2
 FOVStroke.Thickness = 1.5
 FOVStroke.Parent = FOVFrame
 
 --------------------------------------------------------------------------------
--- HIGH PERFORMANCE HELPER FUNCTIONS
+-- HELPER & BOT FILTER FUNCTIONS
 --------------------------------------------------------------------------------
 
-local function isPlayerAlive(player)
-	if not player or not player.Character then return false end
-	local char = player.Character
+local function isEntityAlive(modelOrPlayer)
+	if not modelOrPlayer then return false end
 	
-	if not char:IsDescendantOf(workspace) or char.Parent.Name == "Ragdolls" or char.Parent.Name == "Dead" then
-		return false
+	local char = modelOrPlayer
+	if modelOrPlayer:IsA("Player") then
+		if not modelOrPlayer.Character then return false end
+		char = modelOrPlayer.Character
 	end
+	
+	if not char:IsDescendantOf(workspace) then return false end
 
 	local humanoid = char:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead then
@@ -533,9 +663,7 @@ local function isTargetVisible(targetPart)
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	
 	local ignoreList = {Camera}
-	if LocalPlayer.Character then
-		table.insert(ignoreList, LocalPlayer.Character)
-	end
+	if LocalPlayer.Character then table.insert(ignoreList, LocalPlayer.Character) end
 	
 	rayParams.FilterDescendantsInstances = ignoreList
 	rayParams.IgnoreWater = true
@@ -545,51 +673,91 @@ local function isTargetVisible(targetPart)
 	local raycastResult = workspace:Raycast(origin, direction, rayParams)
 
 	if raycastResult then
-		if raycastResult.Instance:IsDescendantOf(targetPart.Parent) then
-			return true
-		end
+		if raycastResult.Instance:IsDescendantOf(targetPart.Parent) then return true end
 		return false
 	end
 
 	return true
 end
 
+local function getAllTargetCharacters()
+	local targets = {}
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			if IgnoreDead_Enabled and not isEntityAlive(player) then continue end
+			if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then continue end
+			table.insert(targets, player.Character)
+		end
+	end
+
+	if TargetBots_Enabled then
+		local function scanFolder(parent)
+			for _, descendant in ipairs(parent:GetChildren()) do
+				if descendant:IsA("Model") and descendant:FindFirstChildOfClass("Humanoid") and descendant:FindFirstChild("HumanoidRootPart") then
+					
+					local isPlayerChar = false
+					for _, p in ipairs(Players:GetPlayers()) do
+						if p.Character == descendant then isPlayerChar = true; break end
+					end
+
+					if not isPlayerChar and descendant ~= LocalPlayer.Character then
+						local nameLower = string.lower(descendant.Name)
+						if not (nameLower:find("viewmodel") or nameLower:find("camera") or nameLower:find("effect") or nameLower:find("weapon") or nameLower:find("gun") or nameLower:find("item") or nameLower:find("drop")) then
+							if descendant:FindFirstChild("Head") or descendant:FindFirstChild("UpperTorso") or descendant:FindFirstChild("Torso") then
+								local hum = descendant:FindFirstChildOfClass("Humanoid")
+								if hum and hum.Health > 0 then
+									if not (IgnoreDead_Enabled and not isEntityAlive(descendant)) then
+										table.insert(targets, descendant)
+									end
+								end
+							end
+						end
+					end
+				end
+				pcall(function()
+					if #descendant:GetChildren() > 0 then
+						scanFolder(descendant)
+					end
+				end)
+			end
+		end
+		scanFolder(workspace)
+	end
+
+	return targets
+end
+
 local function checkEnemiesBehind()
 	if not BehindWarning_Enabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		return nil, 0
+		return nil, 999
 	end
 
 	local myHRP = LocalPlayer.Character.HumanoidRootPart
 	local myLookVector = myHRP.CFrame.LookVector
+	local closestEntityName = nil
+	local closestDist = 99999
 
-	local closestEnemy = nil
-	local closestDist = Behind_Distance
+	for _, char in ipairs(getAllTargetCharacters()) do
+		local enemyHRP = char:FindFirstChild("HumanoidRootPart")
+		if enemyHRP then
+			if IgnoreDead_Enabled and not isEntityAlive(char) then continue end
+			local dirToEnemy = (enemyHRP.Position - myHRP.Position)
+			local dist = dirToEnemy.Magnitude
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and isPlayerAlive(player) then
-			if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then
-				continue
-			end
-
-			local enemyHRP = player.Character:FindFirstChild("HumanoidRootPart")
-			if enemyHRP then
-				local dirToEnemy = (enemyHRP.Position - myHRP.Position)
-				local dist = dirToEnemy.Magnitude
-
-				if dist <= Behind_Distance then
-					local dotProduct = myLookVector:Dot(dirToEnemy.Unit)
-					if dotProduct < -0.3 then
-						if dist < closestDist then
-							closestDist = dist
-							closestEnemy = player
-						end
+			if dist <= Behind_Distance then
+				local dotProduct = myLookVector:Dot(dirToEnemy.Unit)
+				if dotProduct < -0.3 then
+					if dist < closestDist then
+						closestDist = dist
+						closestEntityName = char.Name
 					end
 				end
 			end
 		end
 	end
 
-	return closestEnemy, math.floor(closestDist)
+	return closestEntityName, math.floor(closestDist)
 end
 
 local function getCenterScreenPos()
@@ -599,41 +767,29 @@ local function getCenterScreenPos()
 end
 
 local function getClosestTarget()
-	local closestPlayer = nil
+	local closestChar = nil
 	local shortestDistance = FOV_Radius
 	local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			if IgnoreDead_Enabled and not isPlayerAlive(player) then
-				continue
-			end
+	for _, char in ipairs(getAllTargetCharacters()) do
+		if IgnoreDead_Enabled and not isEntityAlive(char) then continue end
 
-			if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then
-				continue
-			end
+		local targetPart = getTargetPart(char)
+		if not targetPart then continue end
+		if not isTargetVisible(targetPart) then continue end
 
-			local targetPart = getTargetPart(player.Character)
-			if not targetPart then continue end
+		local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+		if onScreen and screenPos.Z > 0 then
+			local targetVector = Vector2.new(screenPos.X, screenPos.Y)
+			local dist = (targetVector - centerPos).Magnitude
 
-			if not isTargetVisible(targetPart) then
-				continue
-			end
-
-			local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-
-			if onScreen and screenPos.Z > 0 then
-				local targetVector = Vector2.new(screenPos.X, screenPos.Y)
-				local dist = (targetVector - centerPos).Magnitude
-
-				if dist <= shortestDistance then
-					shortestDistance = dist
-					closestPlayer = player
-				end
+			if dist <= shortestDistance then
+				shortestDistance = dist
+				closestChar = char
 			end
 		end
 	end
-	return closestPlayer
+	return closestChar
 end
 
 --------------------------------------------------------------------------------
@@ -646,6 +802,10 @@ createToggle("Sticky Aim", "Locks onto targets inside FOV", false, function(stat
 	if not state then LockTarget = nil end
 end)
 
+createToggle("Target Bots", "Include NPCs and dummies in aim/ESP", false, function(state)
+	TargetBots_Enabled = state
+end)
+
 createSlider("FOV Radius", 40, 300, FOV_Radius, function(val)
 	FOV_Radius = val
 end)
@@ -654,13 +814,11 @@ createSlider("Aim Smoothness", 1, 100, math.floor(Aim_Smoothness * 100), functio
 	Aim_Smoothness = math.clamp(rel, 0.05, 1.0)
 end)
 
-createToggle("Wall Check", "Only aim at visible players", false, function(state)
+createToggle("Wall Check", "Only aim at visible players/bots", false, function(state)
 	WallCheck_Enabled = state
-	if state and LockTarget and LockTarget.Character then
-		local part = getTargetPart(LockTarget.Character)
-		if not isTargetVisible(part) then
-			LockTarget = nil
-		end
+	if state and LockTarget then
+		local part = getTargetPart(LockTarget)
+		if not isTargetVisible(part) then LockTarget = nil end
 	end
 end)
 
@@ -669,11 +827,11 @@ createToggle("Behind Warning", "Alerts when enemies are behind you", false, func
 	if not state then warningFrame.Visible = false end
 end)
 
-createSlider("Warning Range", 10, 60, Behind_Distance, function(val)
+createSlider("Warning Range", 10, 100, Behind_Distance, function(val)
 	Behind_Distance = val
 end)
 
-createToggle("Ignore Dead", "Ignore ragdolled or downed players", false, function(state)
+createToggle("Ignore Dead", "Ignore ragdolled or downed targets", false, function(state)
 	IgnoreDead_Enabled = state
 end)
 
@@ -681,7 +839,7 @@ createToggle("Team Check", "Ignore players on your team", false, function(state)
 	TeamCheck_Enabled = state
 end)
 
-createToggle("Visual ESP", "Highlights all enemy players", false, function(state)
+createToggle("Visual ESP", "Highlights all enemies and bots", false, function(state)
 	VisualESP_Enabled = state
 end)
 
@@ -694,11 +852,10 @@ RunService.RenderStepped:Connect(function(deltaTime)
 	FOVFrame.Size = UDim2.new(0, FOV_Radius * 2, 0, FOV_Radius * 2)
 	FOVFrame.Position = UDim2.new(0, centerScreen.X, 0, centerScreen.Y)
 
-	-- Behind Warning Check
 	if BehindWarning_Enabled then
-		local enemyBehind, distance = checkEnemiesBehind()
-		if enemyBehind then
-			warningText.Text = "⚠️ " .. enemyBehind.DisplayName:upper() .. " (" .. distance .. "m)"
+		local entityName, distance = checkEnemiesBehind()
+		if entityName and distance <= Behind_Distance then
+			warningText.Text = "⚠️ " .. string.upper(entityName) .. " (" .. distance .. "m)"
 			warningFrame.Visible = true
 		else
 			warningFrame.Visible = false
@@ -707,10 +864,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
 		warningFrame.Visible = false
 	end
 
-	-- Sticky Aim Execution
 	if StickyAim_Enabled then
-		local targetPart = LockTarget and LockTarget.Character and getTargetPart(LockTarget.Character)
-		local isValidTarget = LockTarget and isPlayerAlive(LockTarget) and targetPart
+		if LockTarget and IgnoreDead_Enabled and not isEntityAlive(LockTarget) then
+			LockTarget = nil
+		end
+
+		local targetPart = LockTarget and getTargetPart(LockTarget)
+		local isValidTarget = LockTarget and isEntityAlive(LockTarget) and targetPart
 
 		if isValidTarget and WallCheck_Enabled and not isTargetVisible(targetPart) then
 			isValidTarget = false
@@ -718,64 +878,58 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
 		if not isValidTarget then
 			LockTarget = getClosestTarget()
-			targetPart = LockTarget and LockTarget.Character and getTargetPart(LockTarget.Character)
+			targetPart = LockTarget and getTargetPart(LockTarget)
 		end
 
 		if LockTarget and targetPart then
 			local targetPos = targetPart.Position
-
-			local hrp = LockTarget.Character:FindFirstChild("HumanoidRootPart")
+			local hrp = LockTarget:FindFirstChild("HumanoidRootPart")
 			if hrp and hrp.Velocity then
 				targetPos = targetPos + (hrp.Velocity * (deltaTime * 1.2))
 			end
 
 			local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
-
 			if onScreen and screenPos.Z > 0 then
 				local currentCFrame = Camera.CFrame
 				local targetCFrame = CFrame.lookAt(currentCFrame.Position, targetPos)
-				
 				local smoothFactor = math.clamp(Aim_Smoothness * 35 * deltaTime, 0.01, 1)
 				Camera.CFrame = currentCFrame:Lerp(targetCFrame, smoothFactor)
-
-				FOVStroke.Color = Color3.fromRGB(0, 255, 150)
+				
+				-- FOV circle turns Blue when target locked
+				FOVStroke.Color = Color3.fromRGB(10, 132, 255)
 			else
 				LockTarget = nil
+				-- FOV circle turns White when no target inside
 				FOVStroke.Color = UI_TextPrimary
 			end
 		else
+			-- FOV circle turns White when no target inside
 			FOVStroke.Color = UI_TextPrimary
 		end
 	end
 
-	-- ESP Highlights Execution
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			if VisualESP_Enabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-				local isSameTeam = TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team
-				local alive = isPlayerAlive(player)
-
-				if not isSameTeam and (not IgnoreDead_Enabled or alive) then
-					local highlight = player.Character:FindFirstChild("ESPHighlight")
-					if not highlight then
-						highlight = Instance.new("Highlight")
-						highlight.Name = "ESPHighlight"
-						highlight.FillTransparency = 0.5
-						highlight.OutlineTransparency = 0
-						highlight.Parent = player.Character
-					end
-
-					highlight.Enabled = true
-					highlight.FillColor = alive and Color3.fromRGB(240, 242, 248) or Color3.fromRGB(100, 115, 130)
-				else
-					if player.Character and player.Character:FindFirstChild("ESPHighlight") then
-						player.Character.ESPHighlight.Enabled = false
-					end
-				end
+	for _, char in ipairs(getAllTargetCharacters()) do
+		if VisualESP_Enabled and char and char:FindFirstChild("HumanoidRootPart") then
+			local alive = isEntityAlive(char)
+			if IgnoreDead_Enabled and not alive then
+				local highlight = char:FindFirstChild("ESPHighlight")
+				if highlight then highlight.Enabled = false end
 			else
-				if player.Character and player.Character:FindFirstChild("ESPHighlight") then
-					player.Character.ESPHighlight.Enabled = false
+				local highlight = char:FindFirstChild("ESPHighlight")
+				if not highlight then
+					highlight = Instance.new("Highlight")
+					highlight.Name = "ESPHighlight"
+					highlight.Adornee = char
+					highlight.Parent = char
 				end
+				highlight.Enabled = true
+				highlight.FillTransparency = 0.5
+				highlight.OutlineTransparency = 0
+				highlight.FillColor = alive and Color3.fromRGB(240, 242, 248) or Color3.fromRGB(100, 115, 130)
+			end
+		else
+			if char and char:FindFirstChild("ESPHighlight") then
+				char.ESPHighlight.Enabled = false
 			end
 		end
 	end
