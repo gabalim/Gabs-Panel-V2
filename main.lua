@@ -36,7 +36,7 @@ screenGui.Parent = PlayerGui
 local StickyAim_Enabled = false
 local WallCheck_Enabled = false
 local IgnoreDead_Enabled = false
-local IgnoreShield_Enabled = false -- FIX: Set to FALSE by default on load
+local IgnoreShield_Enabled = false
 local TeamCheck_Enabled = false
 local VisualESP_Enabled = false
 local BehindWarning_Enabled = false
@@ -642,7 +642,6 @@ local function isEntityAlive(modelOrPlayer)
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return false end
 
-	-- FIX: Check if limbs have broken apart / ragdolled
 	local head = char:FindFirstChild("Head")
 	if head and not head:IsDescendantOf(char) then return false end
 
@@ -650,7 +649,7 @@ local function isEntityAlive(modelOrPlayer)
 		return false
 	end
 
-	-- ADVANCED SPAWN SHIELD / FORCEFIELD CHECK --
+	-- ADVANCED SPAWN SHIELD / FORCEFIELD CHECK
 	if IgnoreShield_Enabled then
 		if char:FindFirstChildOfClass("ForceField") or char:FindFirstChildWhichIsA("ForceField", true) then
 			return false
@@ -719,7 +718,6 @@ local function getAllTargetCharacters()
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
-			-- Exclude dead or scattered player bodies
 			if isEntityAlive(player) then
 				if TeamCheck_Enabled and player.Team and player.Team == LocalPlayer.Team then continue end
 				table.insert(targets, player.Character)
@@ -761,6 +759,43 @@ local function getAllTargetCharacters()
 	return targets
 end
 
+--------------------------------------------------------------------------------
+-- NEAREST PLAYER FINDER (UPDATED 3D WORLD-SPACE DISTANCE)
+--------------------------------------------------------------------------------
+
+local function getNearestTarget()
+	local closestChar = nil
+	local shortestWorldDistance = math.huge
+
+	local myChar = LocalPlayer.Character
+	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+	local myPos = myChar.HumanoidRootPart.Position
+
+	for _, char in ipairs(getAllTargetCharacters()) do
+		if not isEntityAlive(char) then continue end
+
+		local targetPart = getTargetPart(char)
+		if not targetPart then continue end
+		if not isTargetVisible(targetPart) then continue end
+
+		-- Check distance in 3D World Space
+		local distance = (targetPart.Position - myPos).Magnitude
+
+		-- Verify screen bounds inside FOV
+		local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+		if onScreen and screenPos.Z > 0 then
+			local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - centerPos).Magnitude
+
+			if screenDist <= FOV_Radius and distance < shortestWorldDistance then
+				shortestWorldDistance = distance
+				closestChar = char
+			end
+		end
+	end
+	return closestChar
+end
+
 local function checkEnemiesBehind()
 	if not BehindWarning_Enabled or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		return nil, 999
@@ -774,7 +809,7 @@ local function checkEnemiesBehind()
 	for _, char in ipairs(getAllTargetCharacters()) do
 		local enemyHRP = char:FindFirstChild("HumanoidRootPart")
 		if enemyHRP then
-			if IgnoreDead_Enabled and not isEntityAlive(char) then continue end
+			if not isEntityAlive(char) then continue end
 			local dirToEnemy = (enemyHRP.Position - myHRP.Position)
 			local dist = dirToEnemy.Magnitude
 
@@ -799,37 +834,11 @@ local function getCenterScreenPos()
 	return Vector2.new(viewportSize.X / 2, (viewportSize.Y / 2) - inset.Y)
 end
 
-local function getClosestTarget()
-	local closestChar = nil
-	local shortestDistance = FOV_Radius
-	local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-	for _, char in ipairs(getAllTargetCharacters()) do
-		if IgnoreDead_Enabled and not isEntityAlive(char) then continue end
-
-		local targetPart = getTargetPart(char)
-		if not targetPart then continue end
-		if not isTargetVisible(targetPart) then continue end
-
-		local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-		if onScreen and screenPos.Z > 0 then
-			local targetVector = Vector2.new(screenPos.X, screenPos.Y)
-			local dist = (targetVector - centerPos).Magnitude
-
-			if dist <= shortestDistance then
-				shortestDistance = dist
-				closestChar = char
-			end
-		end
-	end
-	return closestChar
-end
-
 --------------------------------------------------------------------------------
 -- REGISTER CONTROLS
 --------------------------------------------------------------------------------
 
-createToggle("Sticky Aim", "Locks onto targets inside FOV", false, function(state)
+createToggle("Sticky Aim", "Locks onto nearest target inside FOV", false, function(state)
 	StickyAim_Enabled = state
 	FOVFrame.Visible = state
 	if not state then LockTarget = nil end
@@ -855,7 +864,6 @@ createToggle("Wall Check", "Only aim at visible players/bots", false, function(s
 	end
 end)
 
--- FIX: Ignore Spawn Shield set to false by default on load
 createToggle("Ignore Spawn Shield", "Ignore players with ForceFields", false, function(state)
 	IgnoreShield_Enabled = state
 end)
@@ -888,7 +896,6 @@ end)
 local function ApplyESP(character, isAlive)
 	if not character then return end
 
-	-- FIX: Instantly destroy ESP highlights on dead bodies or scattered limbs
 	if not isAlive then
 		local highlight = character:FindFirstChild("ESPHighlight")
 		if highlight then
@@ -934,22 +941,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
 		warningFrame.Visible = false
 	end
 
+	----------------------------------------------------------------------------
+	-- UPDATED STICKY AIM (LOCKS TO NEAREST TARGET)
+	----------------------------------------------------------------------------
 	if StickyAim_Enabled then
-		if LockTarget and not isEntityAlive(LockTarget) then
-			LockTarget = nil
-		end
-
+		-- Continuously evaluate the nearest target
+		LockTarget = getNearestTarget()
 		local targetPart = LockTarget and getTargetPart(LockTarget)
-		local isValidTarget = LockTarget and isEntityAlive(LockTarget) and targetPart
-
-		if isValidTarget and WallCheck_Enabled and not isTargetVisible(targetPart) then
-			isValidTarget = false
-		end
-
-		if not isValidTarget then
-			LockTarget = getClosestTarget()
-			targetPart = LockTarget and getTargetPart(LockTarget)
-		end
 
 		if LockTarget and targetPart then
 			local targetPos = targetPart.Position
@@ -979,7 +977,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
 	-- VISUAL ESP HIGHLIGHT RENDER
 	----------------------------------------------------------------------------
 	if VisualESP_Enabled then
-		-- Render highlights for alive target models
 		for _, char in ipairs(getAllTargetCharacters()) do
 			if char and char:FindFirstChild("HumanoidRootPart") then
 				local alive = isEntityAlive(char)
@@ -987,7 +984,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
 			end
 		end
 
-		-- Cleanup dead bodies / scattered limbs leftover in Workspace
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player ~= LocalPlayer and player.Character then
 				if not isEntityAlive(player) then
@@ -999,7 +995,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
 			end
 		end
 	else
-		-- Destroy highlights across workspace when ESP is toggled off
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player.Character then
 				local highlight = player.Character:FindFirstChild("ESPHighlight")
